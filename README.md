@@ -1,6 +1,7 @@
 # Usage
 
-To run the script, use the following command when in the root directory
+Depending on your screen, you may have to edit the size of the buffer at app.rs:30.
+To run the script, use the following command when in the root directory.
 
 ```bash
 cargo run --release -- <ip:port> <pseudo>
@@ -17,3 +18,15 @@ and run the binary directly with
 ```bash
 ./target/release/tcpland <ip:port> <pseudo>
 ```
+
+# Commands
+
+There's really few shortcut :
+
+## Normal mode
+- <c> Clears the console
+- <q> exits
+- <i> enter edit mode
+## Edit mode
+- <Enter> send message
+- <Escape> return to normal mode
