@@ -1,11 +1,13 @@
+use color_eyre::owo_colors::OwoColorize;
 use queues::IsQueue;
 use ratatui::{
     layout::*,
     style::{Color, Style},
-    text::Text,
+    text::{Text, Span, Line},
     widgets::{Block, Paragraph, Clear},
     Frame,
 };
+use ratatui::style::Stylize;
 use ratatui::widgets::{Borders, ListItem, List, Wrap};
 use crate::app::{App, ModeType};
 
@@ -26,16 +28,22 @@ pub fn ui(frame: &mut Frame, app: &mut App){
         .style(Style::default());
 
     let mut messages = Vec::<ListItem>::new();
-    
+
     let height = chunks[0].height;
 
     for i in 0..app.data.size() {
         let message = app.data.remove().unwrap();
+        let pseudo_end = &message.chars().position(|c| c == ']').unwrap();
+        let pseudo = message[1..*pseudo_end].to_string();
+        let no_pseudo = message[pseudo_end+1..message.len()].to_string();
         if app.offset == -1 {
             let mut start = (app.data.size() as isize - height as isize + 3) as i32;
             if start < 0 {start = 0;}
             if (i >= start as usize) && i <= app.data.size() {
-                messages.push(ListItem::new(Text::styled(message.clone(), Style::default().fg(Color::White).bg(Color::Black))));
+                messages.push(ListItem::new(Line::from(vec![
+                    ("[".to_owned() + &*pseudo + "]").fg(Color::Indexed(app.registered_users.get(&pseudo).unwrap_or(&255).to_owned())),
+                    no_pseudo.fg(Color::White),
+                ])));
             }
         }
         else if !((i < (std::cmp::max(0, app.offset) as usize)) || (i >= (std::cmp::max(0, app.offset) +  (height as i32)) as usize)) {
@@ -62,7 +70,7 @@ pub fn ui(frame: &mut Frame, app: &mut App){
     
     let input = Paragraph::new(Text::styled(app.input.clone(), Style::default().fg(Color::White).bg(Color::Black)))
         .block(footer_block)
-        .style(Style::default().fg(match app.mode { 
+        .style(Style::default().fg(match app.mode {
             ModeType::Normal => Color::Green,
             ModeType::Insert => Color::Yellow,
         }).bg(Color::Black))
