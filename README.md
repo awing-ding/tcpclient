@@ -24,9 +24,9 @@ and run the binary directly with
 There's really few shortcut :
 
 ## Normal mode
-- <c> Clears the console
-- <q> exits
-- <i> enter edit mode
+- `<c>` Clears the console
+- `<q>` exits
+- `<i>` enter edit mode
 ## Edit mode
-- <Enter> send message
-- <Escape> return to normal mode
+- `<Enter>` send message
+- `<Escape>` return to normal mode
