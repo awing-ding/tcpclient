@@ -9,6 +9,7 @@ use ratatui::{
 use ratatui::widgets::{Borders, ListItem, List, Wrap};
 use crate::app::{App, ModeType};
 
+
 pub fn ui(frame: &mut Frame, app: &mut App){
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -30,13 +31,20 @@ pub fn ui(frame: &mut Frame, app: &mut App){
 
     for i in 0..app.data.size() {
         let message = app.data.remove().unwrap();
-        if !((i < (app.offset as usize)) | (i >= (app.offset + height) as usize)) {
+        if app.offset == -1 {
+            let mut start = (app.data.size() as isize - height as isize + 3) as i32;
+            if start < 0 {start = 0;}
+            if (i >= start as usize) && i <= app.data.size() {
+                messages.push(ListItem::new(Text::styled(message.clone(), Style::default().fg(Color::White).bg(Color::Black))));
+            }
+        }
+        else if !((i < (std::cmp::max(0, app.offset) as usize)) || (i >= (std::cmp::max(0, app.offset) +  (height as i32)) as usize)) {
             messages.push(ListItem::new(Text::styled(message.clone(), Style::default().fg(Color::White).bg(Color::Black))));
         }
         app.data.add(message).expect("should add back to queue");
     }
 
-    let list = List::new(messages).block(title_block).style(Style::default().fg(Color::White).bg(Color::Black));
+    let list = List::new(messages).block(title_block).style(Style::default().fg(Color::Blue).bg(Color::Black));
 
     frame.render_widget(Clear, chunks[0]);
     frame.render_widget(list, chunks[0]);
@@ -47,11 +55,17 @@ pub fn ui(frame: &mut Frame, app: &mut App){
             ModeType::Normal => "Normal Mode",
             ModeType::Insert => "Insert Mode",
         })
-        .style(Style::default());
+        .style(Style::default().fg(match app.mode {
+            ModeType::Normal => Color::Green,
+            ModeType::Insert => Color::Yellow,
+        }));
     
-    let input = Paragraph::new(app.input.clone())
+    let input = Paragraph::new(Text::styled(app.input.clone(), Style::default().fg(Color::White).bg(Color::Black)))
         .block(footer_block)
-        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .style(Style::default().fg(match app.mode { 
+            ModeType::Normal => Color::Green,
+            ModeType::Insert => Color::Yellow,
+        }).bg(Color::Black))
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: true });
     

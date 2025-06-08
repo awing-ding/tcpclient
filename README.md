@@ -21,7 +21,7 @@ and run the binary directly with
 
 # Commands
 
-There's really few shortcut :
+There are really few shortcut :
 
 ## Normal mode
 - `<c>` Clears the console

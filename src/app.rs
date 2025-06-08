@@ -16,7 +16,8 @@ pub enum ModeType {
 
 pub struct App {
     stream: TcpStream,
-    offset: u16,
+    offset: i32,
+    registered_users: Vec<String>,
     data: CircularBuffer<String>,
     input: String,
     mode: ModeType,
@@ -28,7 +29,8 @@ impl App {
     pub fn new(stream: TcpStream) -> Self {
         Self {
             stream,
-            offset: 0,
+            offset: -1,
+            registered_users: vec![String::new(); 10],
             data: CircularBuffer::new(128),
             input: String::new(),
             mode: ModeType::Normal,
@@ -76,12 +78,12 @@ impl App {
                         self.mode = ModeType::Insert;
                     }
                     event::KeyCode::Char('j') | event::KeyCode::Down => {
-                        if self.offset < self.data.size() as u16 {
+                        if self.offset < self.data.size() as i32 {
                             self.offset += 1;
                         }
                     }
                     event::KeyCode::Char('k') | event::KeyCode::Up => {
-                        if self.offset > 0 {
+                        if self.offset > -1 {
                             self.offset -= 1;
                         }
                     }
