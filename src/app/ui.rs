@@ -2,7 +2,7 @@ use queues::IsQueue;
 use ratatui::{
     layout::*,
     style::{Color, Style},
-    text::{Line, Span, Text},
+    text::Text,
     widgets::{Block, Paragraph, Clear},
     Frame,
 };
