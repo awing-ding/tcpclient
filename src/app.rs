@@ -16,6 +16,7 @@ pub enum ModeType {
 
 pub struct App {
     stream: TcpStream,
+    offset: u16,
     data: CircularBuffer<String>,
     input: String,
     mode: ModeType,
@@ -27,7 +28,8 @@ impl App {
     pub fn new(stream: TcpStream) -> Self {
         Self {
             stream,
-            data: CircularBuffer::new(42),
+            offset: 0,
+            data: CircularBuffer::new(128),
             input: String::new(),
             mode: ModeType::Normal,
             exit: false,
@@ -73,11 +75,26 @@ impl App {
                     event::KeyCode::Char('i') => {
                         self.mode = ModeType::Insert;
                     }
+                    event::KeyCode::Char('j') | event::KeyCode::Down => {
+                        if self.offset < self.data.size() as u16 {
+                            self.offset += 1;
+                        }
+                    }
+                    event::KeyCode::Char('k') | event::KeyCode::Up => {
+                        if self.offset > 0 {
+                            self.offset -= 1;
+                        }
+                    }
                     _ => {}
                 },
                 ModeType::Insert => match key.code {
                     event::KeyCode::Esc => {
                         self.mode = ModeType::Normal;
+                    }
+                    event::KeyCode::Backspace => {
+                        if !self.input.is_empty() {
+                            self.input.pop();
+                        }
                     }
                     event::KeyCode::Enter => {
                         self.stream.write((self.input.clone() +"\r\n" ).as_ref()).expect("should write to upstream");

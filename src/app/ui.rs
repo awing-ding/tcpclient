@@ -25,10 +25,14 @@ pub fn ui(frame: &mut Frame, app: &mut App){
         .style(Style::default());
 
     let mut messages = Vec::<ListItem>::new();
+    
+    let height = chunks[0].height;
 
-    for _ in 0..app.data.size() {
+    for i in 0..app.data.size() {
         let message = app.data.remove().unwrap();
-        messages.push(ListItem::new(Text::styled(message.clone(), Style::default().fg(Color::White).bg(Color::Black))));
+        if !((i < (app.offset as usize)) | (i >= (app.offset + height) as usize)) {
+            messages.push(ListItem::new(Text::styled(message.clone(), Style::default().fg(Color::White).bg(Color::Black))));
+        }
         app.data.add(message).expect("should add back to queue");
     }
 

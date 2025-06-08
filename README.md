@@ -27,6 +27,8 @@ There's really few shortcut :
 - `<c>` Clears the console
 - `<q>` exits
 - `<i>` enter edit mode
+- `<j> or <down>` scroll down
+- `<k> or <up>` scroll up
 ## Edit mode
 - `<Enter>` send message
 - `<Escape>` return to normal mode
