@@ -41,7 +41,11 @@ const COLORS: [u8; 212] = [
 
 
 pub struct App {
-    stream: TcpStream,
+    ip: Option<String>,
+    username: Option<String>,
+    stream: Option<TcpStream>,
+    connection_status: bool,
+    failed_connection: bool,
     offset: i32,
     registered_users: HashMap<String, u8>,
     data: CircularBuffer<String>,
@@ -52,39 +56,82 @@ pub struct App {
 
 impl App {
     
-    pub fn new(stream: TcpStream) -> Self {
-        Self {
-            stream,
-            offset: -1,
-            registered_users: HashMap::new(),
-            data: CircularBuffer::new(128),
-            input: String::new(),
-            mode: ModeType::Normal,
-            exit: false,
+    pub fn new(payload: Option<(String, String)>) -> Self {
+        let mut stream: TcpStream;
+        let mut opt_server_address: Option<String> = None;
+        let mut opt_username: Option<String> = None;
+        if payload.is_none() {
+            Self {
+                ip: opt_server_address,
+                username: opt_username,
+                stream: None,
+                connection_status: false,
+                failed_connection: false,
+                offset: -1,
+                registered_users: HashMap::new(),
+                data: CircularBuffer::new(128),
+                input: String::new(),
+                mode: ModeType::Normal,
+                exit: false,
+            }
+            
+        } else {
+            let (server_address, username) = payload.unwrap();
+            opt_server_address = Some(server_address.clone());
+            opt_username = Some(username.clone());
+            stream = TcpStream::connect(server_address).expect("should connect to server");
+            stream.set_read_timeout(Some(std::time::Duration::from_millis(50))).expect("should set read timeout");
+            stream.write_all((username + "\r\n").as_ref()).expect("should write to server");
+            let buf = &mut [0; 1024];
+            stream.read_exact(buf).unwrap_or_default();
+            
+            Self {
+                ip: opt_server_address,
+                username: opt_username,
+                stream: Option::from(stream),
+                connection_status: true,
+                failed_connection: false,
+                offset: -1,
+                registered_users: HashMap::new(),
+                data: CircularBuffer::new(128),
+                input: String::new(),
+                mode: ModeType::Normal,
+                exit: false,
+            }
         }
+        
+        
     }
     pub fn run(&mut self, mut terminal: DefaultTerminal) -> io::Result<()> {
         
-        self.registered_users.insert("Myself".to_string(), 21);
         let mut flip = false;
+        
         while !self.exit {
-            let buffer = &mut [0; 1024];
-            let len = self.stream.read(buffer).unwrap_or_else(|_| {return 0});
-            if len > 0 && buffer[0] != "\0".as_bytes()[0] {
-                let message : String = String::from_utf8_lossy(buffer).replace("\0", "").trim().parse().unwrap();
-                self.data.add(message.clone()).expect("should add to queue");
-                let pseudo_end = message.chars().position(|c| c == ']').unwrap();
-                let pseudo = message[1..pseudo_end].to_string();
-                if !self.registered_users.contains_key(&pseudo) && !(pseudo.contains("discussion") || pseudo.contains("rejoint") || pseudo.contains("quitté")) {
-                    self.registered_users.insert(pseudo, COLORS[self.registered_users.len() % COLORS.len()]);
-                }
+            if self.connection_status {
+                self.read_data();
             }
             terminal.draw(|frame| ui::ui(frame, self) )?;
             self.poll_event(&mut terminal)?;
             if !flip {terminal.clear()?; flip = true;}
         }
-        dbg!(&self.registered_users);
         Ok(())
+    }
+    
+    fn read_data(&mut self) {
+        let buffer = &mut [0; 1024];
+        let stream = self.stream.as_mut().expect("stream should be available");
+        let len = stream.read(buffer).unwrap_or(0);
+        if len > 0 && buffer[0] != "\0".as_bytes()[0] {
+            let message : String = String::from_utf8_lossy(buffer).replace("\0", "").trim().parse().unwrap();
+            self.data.add(message.clone()).expect("should add to queue");
+            let pseudo_end = message.chars().position(|c| c == ']').unwrap_or(0);
+            if pseudo_end != 0 {
+                let pseudo = message[1..pseudo_end].to_string();
+                if !(self.registered_users.contains_key(&pseudo) || pseudo.contains("discussion") || pseudo.contains("rejoint") || pseudo.contains("quitté")) {
+                    self.registered_users.insert(pseudo, COLORS[self.registered_users.len() % COLORS.len()]);
+                }
+            }
+        }
     }
 
     fn poll_event(&mut self, default_terminal: &mut DefaultTerminal) -> io::Result<()> {
@@ -102,6 +149,9 @@ impl App {
             match self.mode {
                 ModeType::Normal => match key.code {
                     event::KeyCode::Char('q') => {
+                        if self.connection_status {
+                            self.stream.as_mut().unwrap().write_all("/exit\r\n".as_bytes()).unwrap_or_default();
+                        }
                         self.exit = true;
                     }
                     event::KeyCode::Char('c') => {
@@ -134,8 +184,27 @@ impl App {
                         }
                     }
                     event::KeyCode::Enter => {
-                        self.stream.write((self.input.clone() +"\r\n" ).as_ref()).expect("should write to upstream");
-                        self.data.add("[Myself] ".to_string() + &*self.input.clone() + "\r\n").expect("should add to queue");
+                        if self.connection_status {
+                            let stream = self.stream.as_mut().expect("stream should be available");
+                            stream.write_all((self.input.to_owned() + "\r\n").as_ref()).expect("should write to upstream");
+                            self.data.add("[".to_string() + self.username.as_mut().expect("Username should exist") + "] " + &self.input + "\r\n").expect("should add to queue");
+                        }
+                        else if self.ip.is_none() {
+                            self.ip = Some(self.input.to_owned());
+                        }
+                        else if self.username.is_none() {
+                            self.username = Some(self.input.to_owned());
+                            let result = self.connect();
+                            if result.is_err() {
+                                self.failed_connection = true;
+                                self.connection_status = false;
+                                self.stream = None;
+                                self.ip = None;
+                                self.username = None;
+                            } else {
+                                self.failed_connection = false;
+                            }
+                        }
                         self.input.clear();
                     }
                     event::KeyCode::Char(value) => {
@@ -146,5 +215,26 @@ impl App {
             }
         }
         Ok(())
+    }
+    
+    pub fn connect(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.stream.is_some(){
+            panic!("Already connected to a server !");
+        } else if self.ip.is_some() && self.username.is_some() {
+            let server_address = self.ip.as_ref().expect("IP should be available");
+            let username = self.username.as_ref().expect("Username should be available");
+            let mut stream = TcpStream::connect(server_address)?;
+            stream.set_read_timeout(Some(std::time::Duration::from_millis(50))).expect("should set read timeout");
+            stream.set_nonblocking(true).expect("should set nonblocking");
+            stream.write_all(("".to_string() + username + "\r\n").as_ref()).expect("should write to server");
+            let buf = &mut [0; 1024];
+            stream.read_exact(buf).unwrap_or_default();
+            self.stream = Some(stream);
+            self.connection_status = true;
+            self.registered_users.insert(username.to_string(), 21);
+            Ok(())
+        } else {
+            panic!("IP or Username is not set!");
+        }
     }
 }

@@ -1,7 +1,12 @@
 # Usage
 
-Depending on your screen, you may have to edit the size of the buffer at app.rs:30.
 To run the script, use the following command when in the root directory.
+
+```bash
+cargo run --release
+```
+
+you can also specify the IP and port of the server you want to connect to, as well as a pseudo.
 
 ```bash
 cargo run --release -- <ip:port> <pseudo>
@@ -16,7 +21,7 @@ cargo build --release
 and run the binary directly with
 
 ```bash
-./target/release/tcpland <ip:port> <pseudo>
+./target/release/tcpland
 ```
 
 # Commands
